@@ -14,7 +14,7 @@
  * 
  * Custom Extensions:
  * - LOADP rd, rs1  (opcode 0001011) -- Loads 256-bit value starting from memory address in rs1 into 256-bit register rd
- * - MULP  rd, rs1  (opcode ?) -- ???
+ * - MULP  rd1, rd2 , rs1  (opcode ?) -- ???
  */
 
 module rv32i (
@@ -52,10 +52,38 @@ module rv32i (
     localparam EXECUTE = 3'b001;
     localparam POINT_LOAD = 3'b010;
     localparam POINT_READ = 3'b011;  // Added read state
-    
+    localparam POINT_MUL = 3'b100; 
+    localparam POINT_MUL_WAIT = 3'b101;
+
     reg [255:0] point_temp;
     reg [31:0] point_base_addr;
     reg [2:0] point_rd;
+
+    reg point_mul_start;
+    wire point_mul_ready;
+    wire [255:0] point_mul_qx, point_mul_qy, point_mul_qz;
+    reg [2:0] mulp_rd1, mulp_rd2;
+
+    // curve parameters
+    localparam [255:0] SECP256K1_M = 256'hfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f;
+    localparam [255:0] SECP256K1_GX = 256'h79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798;
+    localparam [255:0] SECP256K1_GY = 256'h483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8;
+    localparam [255:0] SECP256K1_GZ = 256'h1;
+
+    point_scalar_mult point_multiplier (
+        .clk(clk),
+        .rst_n(rst_n),
+        .in_ready(point_mul_start),
+        .px(SECP256K1_GX),
+        .py(SECP256K1_GY), 
+        .pz(SECP256K1_GZ),
+        .m(SECP256K1_M),
+        .d(point_registers[rs1[2:0]]),
+        .qx(point_mul_qx),
+        .qy(point_mul_qy),
+        .qz(point_mul_qz),
+        .ready(point_mul_ready)
+    );
 
     initial begin
         pc = 32'h0;
@@ -134,6 +162,13 @@ module rv32i (
                             point_counter <= 0;
                             state <= POINT_LOAD;
                         end
+
+                        7'b0001111: begin // MULP instruction
+                            point_mul_start <= 1;
+                            mulp_rd1 <= rd[2:0];
+                            mulp_rd2 <= rs2[2:0]; 
+                            state <= POINT_MUL;
+                        end
                         
                         default: begin
                             pc <= pc + 4;
@@ -181,7 +216,6 @@ module rv32i (
                 end
                 
                 POINT_READ: begin
-                    // Read the data and store in appropriate part of point_temp
                     case (point_counter)
                         0: begin 
                             point_temp[31:0] <= mem_rdata;
@@ -215,6 +249,16 @@ module rv32i (
                         state <= POINT_LOAD;
                     end else begin
                         point_registers[point_rd] <= {mem_rdata, point_temp[223:0]};
+                        pc <= pc + 4;
+                        state <= FETCH;
+                    end
+                end
+
+                POINT_MUL: begin
+                    point_mul_start <= 0; 
+                    if (point_mul_ready) begin
+                        point_registers[mulp_rd1] <= point_mul_qx; // yea TODO
+                        point_registers[mulp_rd2] <= point_mul_qz;
                         pc <= pc + 4;
                         state <= FETCH;
                     end
