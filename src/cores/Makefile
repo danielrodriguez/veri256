@@ -5,7 +5,10 @@ test: check build
 	vvp ecc_point_add.vvp && \
 	vvp ecc_point_double.vvp && \
 	vvp ecc_point_mult.vvp && \
+	vvp ecc_point_scalar_mult_c.vvp && \
 	vvp rv32i_arith.vvp && \
+	vvp ecc_mod_mul.vvp  &&  \
+	vvp ecc_integ.vvp  &&  \
 	vvp rv32i_point.vvp
 
 check: top
@@ -20,12 +23,15 @@ clean:
 	rm *.vvp a.out || true
 build: clean
 	iverilog  -o keccak.vvp -g2005-sv keccak/*  && \
+	iverilog   -o ecc_integ.vvp -g2005-sv ecc/func.v ecc/ecc.v ecc/integ_test.v && \
+	iverilog   -o ecc_mod_mul.vvp -g2005-sv ecc/func.v ecc/ecc.v ecc/mod_mul_test.v && \
 	iverilog   -o ecc_point_add.vvp -g2005-sv ecc/func.v ecc/ecc.v ecc/point_add_test.v && \
 	iverilog   -o ecc_point_double.vvp -g2005-sv ecc/func.v ecc/ecc.v ecc/point_double_test.v && \
 	iverilog   -o modular_inverse_test.vvp -g2005-sv ecc/func.v ecc/ecc.v ecc/modular_inverse_test.v && \
 	iverilog   -o ecc_point_mult.vvp -g2005-sv ecc/func.v ecc/ecc.v ecc/point_scalar_mult_test.v && \
-	iverilog   -o rv32i_arith.vvp -g2005-sv riscv/rv32i.v riscv/rv32i_arith_tb.v && \
-	iverilog   -o rv32i_point.vvp -g2005-sv riscv/rv32i.v riscv/rv32i_point_tb.v
+	iverilog   -o ecc_point_scalar_mult_c.vvp -g2005-sv ecc/func.v ecc/ecc.v ecc/point_scalar_mult_c_test.v && \
+	iverilog   -o rv32i_arith.vvp -g2005-sv ecc/func.v ecc/ecc.v riscv/rv32i.v riscv/rv32i_arith_tb.v && \
+	iverilog   -o rv32i_point.vvp -g2005-sv ecc/func.v ecc/ecc.v riscv/rv32i.v riscv/rv32i_point_tb.v
 	
 synth: check 
 	yosys -p "read_verilog -sv ecc/func.v ecc/ecc.v ./top.v ./uart.v ./keccak/*.v ; synth_xilinx  -top top"	

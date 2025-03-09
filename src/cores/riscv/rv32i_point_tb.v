@@ -52,9 +52,9 @@ module rv32i_point_tb;
         #1500;
         
         if (dut.point_registers[1] == 256'h8888888877777777666666665555555544444444333333332222222211111111)
-            $display("✅ POINT instruction test passed!");
+            $display("✅ loadp test passed");
         else
-            $display("❌ POINT instruction test failed!");
+            $display("❌ loadp test failed");
         
         $finish;
     end

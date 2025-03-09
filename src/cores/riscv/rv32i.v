@@ -257,7 +257,7 @@ module rv32i (
                 POINT_MUL: begin
                     point_mul_start <= 0; 
                     if (point_mul_ready) begin
-                        point_registers[mulp_rd1] <= point_mul_qx; // yea TODO
+                        point_registers[mulp_rd1] <= point_mul_qx; // yea TODO, use point_scalar_mult_c
                         point_registers[mulp_rd2] <= point_mul_qz;
                         pc <= pc + 4;
                         state <= FETCH;

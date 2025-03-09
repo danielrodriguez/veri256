@@ -1,4 +1,3 @@
-
 module point_add_jaco (clk, rst_n, in_ready, 
 px, py, pz, qx, qy, qz, m,
 rx, ry, rz, ready); // r=p+q
@@ -274,7 +273,6 @@ d, qx, qy, qz, ready);
     end
     always @(posedge clk ) begin
         if (!rst_n) begin
-            // $display("point mul reset");
             state = M__INIT;
             k = d;
             // Q
@@ -566,4 +564,103 @@ module modmul (clk, rst_n, start, a, b, m, p, ready); // p = a * b mod m
             end
         end
     end
+endmodule
+
+module point_scalar_mult_c (clk, rst_n, start, px, py, m, d, rx, ry, ready);
+    input clk, rst_n, start;
+    input [255:0] px, py, m, d;
+    output [255:0] rx, ry;
+    output ready;
+
+    wire [255:0] qx, qy, qz;
+    wire ready_scalar_mult, readyzi, readyqz2, readyqz3, readyrx, readyry;
+    reg start_z2mult, start_z3mult, start_rxmult, start_rymult;
+    wire [255:0] zi, qz2, qz3;
+
+    // Use registered start signals for each module
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            start_z2mult <= 0;
+            start_z3mult <= 0;
+            start_rxmult <= 0;
+            start_rymult <= 0;
+        end else begin
+            start_z2mult <= readyzi;
+            start_z3mult <= readyqz2;
+            start_rxmult <= readyqz2;
+            start_rymult <= readyqz3;
+        end
+    end
+
+    point_scalar_mult inst (
+        .clk(clk), 
+        .rst_n(rst_n), 
+        .in_ready(start), 
+        .px(px), 
+        .py(py), 
+        .pz(256'b1), 
+        .m(m), 
+        .d(d), 
+        .qx(qx), 
+        .qy(qy), 
+        .qz(qz), 
+        .ready(ready_scalar_mult)
+    );
+
+    modinv zinv (
+        .clk(clk), 
+        .rst_n(rst_n), 
+        .start(ready_scalar_mult), 
+        .b(256'b1), 
+        .a(qz), 
+        .m(m), 
+        .c(zi), 
+        .ready(readyzi)
+    );
+
+    modmul z2mult (
+        .clk(clk), 
+        .rst_n(rst_n), 
+        .start(start_z2mult), 
+        .a(zi), 
+        .b(zi), 
+        .m(m), 
+        .p(qz2), 
+        .ready(readyqz2)
+    );
+
+    modmul z3mult (
+        .clk(clk), 
+        .rst_n(rst_n), 
+        .start(start_z3mult), 
+        .a(zi), 
+        .b(qz2), 
+        .m(m), 
+        .p(qz3), 
+        .ready(readyqz3)
+    );
+
+    modmul rxmult (
+        .clk(clk), 
+        .rst_n(rst_n), 
+        .start(start_rxmult), 
+        .a(qx), 
+        .b(qz2), 
+        .m(m), 
+        .p(rx), 
+        .ready(readyrx)
+    );
+
+    modmul rymult (
+        .clk(clk), 
+        .rst_n(rst_n), 
+        .start(start_rymult), 
+        .a(qy), 
+        .b(qz3), 
+        .m(m), 
+        .p(ry), 
+        .ready(readyry)
+    );
+
+    assign ready = readyrx & readyry;
 endmodule
